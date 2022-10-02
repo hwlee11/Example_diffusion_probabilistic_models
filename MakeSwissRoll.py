@@ -68,11 +68,11 @@ def lle(data,nRedDim=2,K=12):
 	y = evecs[:,ind[1:nRedDim+1]]*np.sqrt(ndata)
 	return evals,evecs,y
 
-data,t = swissroll()
-print(data)
+#data,t = swissroll()
+#print(data)
 #plt.plot(t,data,'ro')
-plt.plot(data[:,1],data[:,0],'ro')
-plt.show()
+#plt.plot(data[:,1],data[:,0],'ro')
+#plt.show()
 
 #evals,evecs,y = lle(data)
 #t -= t.min()
