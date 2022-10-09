@@ -18,10 +18,10 @@ def swissroll():
 	N = 1000
 	noise = 0.05
 
-	t = 3*np.pi/2 * (1 + 2*np.random.rand(1,N))
+	t = (9/3)*np.pi/2 * (1 + 2*np.random.rand(1,N))
 	#h = 21 * np.random.rand(1,N)
 	#data = np.concatenate((t*np.cos(t),h,t*np.sin(t))) + noise*np.random.randn(3,N)	
-	data = np.concatenate((t*np.cos(t),t*np.sin(t))) + noise*np.random.randn(2,N)	
+	data = np.concatenate((0.1*t*np.cos(t),0.1*t*np.sin(t)))# + noise*np.random.randn(2,N)	
 	#data = np.concatenate((t*np.cos(t))) + noise*np.random.randn(1,N)	
 	return np.transpose(data), np.squeeze(t)
 
