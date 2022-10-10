@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 
 def swissroll():
 	# Make the swiss roll dataset
-	N = 1000
+	N = 256
 	noise = 0.05
 
 	t = (9/3)*np.pi/2 * (1 + 2*np.random.rand(1,N))
