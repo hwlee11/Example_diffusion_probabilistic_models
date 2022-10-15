@@ -9,7 +9,7 @@ class mlp(torch.nn.Module):
         self.timeSteps = timeSteps
         self.timeEmbedding = torch.nn.Embedding(timeSteps,2*inputDim)
         self.layer_1 = torch.nn.Linear(2*inputDim,hiddenDim)
-        #self.layer_2 = torch.nn.Linear(hiddenDim,hiddenDim)
+        self.layer_2 = torch.nn.Linear(hiddenDim,hiddenDim)
         self.layer_3 = torch.nn.Linear(hiddenDim,2*inputDim) #
         #self.layer_3 = torch.nn.Linear(hiddenDim,2*inputDim*timeSteps+timeSteps) #
         self.softPlus = torch.nn.Softplus()
@@ -23,7 +23,7 @@ class mlp(torch.nn.Module):
         tEmb = self.timeEmbedding(t)
         x+=tEmb
         x =self.sigmoid(self.layer_1(x))
-        #x =self.sigmoid( self.layer_2(x))
+        x =self.sigmoid( self.layer_2(x))
         modelParameters = self.layer_3(x)
 
         #mus = self.sigmoid(modelParameters[:self.inputDim*self.inputDim].view(self.inputDim,self.inputDim,1))

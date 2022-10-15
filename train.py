@@ -5,6 +5,15 @@ from model import mlp
 import random
 import matplotlib.pyplot as plt
 import time
+import numpy
+
+randseed=42
+random.seed(randseed)
+numpy.random.seed(randseed)
+torch.manual_seed(randseed)
+torch.cuda.manual_seed(randseed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 def forwardSampling(x_0,betas,device):
 
@@ -56,30 +65,24 @@ def torchForwardSampling(x_0,betaT,betaTensor,t,batchSize,dataSize,device):
 
     return xNoise,muPosterior,sigmaPosterior,eps
 
-#def reversedSampling(x,mu,betas,t,device):
-def reversedSampling(x,eps,betas,t,device):
+def reversedSampling(x,eps,betas,t,dataSize,device):
 
     """
     z = torch.zeros(100,100,1).to(device)
     if t > 1:
         z = torch.normal(mean=torch.zeros(100,100,1),std=torch.ones(100,100,1)).to(device)
     """
-    z = torch.zeros(64,2).to(device)
+    z = torch.zeros(dataSize,2).to(device)
     if t > 1:
-        z = torch.normal(mean=torch.zeros(64,2),std=torch.ones(64,2)).to(device)
+        z = torch.normal(mean=torch.zeros(dataSize,2),std=torch.ones(dataSize,2)).to(device)
     
     alphaTensor = 1-betas
     alphaBars = alphaTensor.cumprod(0)
     alphaBar = alphaBars[t]
 
-    sigma = betas[t]*z
-    #eps = torch.normal(mean=mu,std=torch.ones(100,100,1))
-    #eps = torch.normal(mean=mu,std=torch.ones(100,100,1))
-    #x = (1/torch.sqrt(alphaTensor[t]))*(x-((torch.sqrt(1-alphaTensor[t]))*mu)) + sigma
-
-    x = (1/torch.sqrt(alphaTensor[t]))*(x-(((1-alphaTensor[t])/torch.sqrt(1-alphaBar))*eps)) + sigma
     #DDPM style
-    #x = (1/torch.sqrt(alphaTensor[t]))*(x-((1-alphaTensor[t]/torch.sqrt(1-alphaBar))*torch.normal(mean=mu,std=betas[t])))
+    sigma = betas[t]*z
+    x = (1/torch.sqrt(alphaTensor[t]))*(x-(((1-alphaTensor[t])/torch.sqrt(1-alphaBar))*eps)) + sigma
 
     return x
 
@@ -89,15 +92,28 @@ def LBLL(mu,sigma,muPosterior,sigmaPosterior,t,beta,timeSteps):
     # H term is constant
     KL = torch.log(sigma) - torch.log(sigmaPosterior) + (sigmaPosterior**2 + (muPosterior-mu)**2)/(2*sigma**2+torch.finfo(torch.float32).eps) - 0.5
 
-def DDPMLBLL(predicEps,eps,t,beta,timeSteps):
+def DDPMLBLL(predictEps,eps,t,beta,timeSteps,dataSize,batchSize):
 
     # DDPM style Lower bound on log likelihood
     # E_{q}[D_{KL}(q(x^(t-1)|)||p(x^((t-1)|p^(t)))] + H_{q}+H_{q}-H_{p}
     # H term is constant
     # beta is sigma in DDPM 
-    L = torch.norm(eps-predicEps,2)
+    # Loss = || eps_{t} - eps_{theta} ||^2
+    #L = torch.norm(eps-predicEps,2)
+    #print(predicEps.size(),eps.size())
+    #L = torch.nn.functional.mse_loss(predicEps,eps,reduction='sum')
+    #L/=100*64*2
+    #print(L)
 
-    return L
+    L = torch.sqrt(((eps-predictEps)**2).sum(2)).sum(-1)
+    LVar,L = torch.var_mean(L)
+
+    #print(L,L.size())
+    #print(((predictEps-eps)**2).sum()/100)
+    #L = torch.norm((eps-predictEps))
+    #exit()
+
+    return L,LVar
 
 
 def train(args):
@@ -108,12 +124,16 @@ def train(args):
     hiddenDim = args.hidden_dim
     dataSize = args.data_size
     device = torch.device(args.device)
-    epochs = 2000
+    epochs = 4000
     batchs = 1000
-    batchSize =100
+    batchSize =128
 
     #make train data
     data,t = swissroll(dataSize)
+    plt.plot(data[:,0],data[:,1],'ro')
+    plt.savefig("256sample.png",dpi=300)
+    exit()
+    plt.clf()
     data = torch.tensor(data).to(torch.float64)
     """
     swissRoll = torch.zeros(100,100,1)
@@ -125,9 +145,8 @@ def train(args):
     """
 
     model = mlp(timeSteps,inputDim=dataSize,hiddenDim=hiddenDim)
-    lr = 0.1
+    lr = 0.01
     optim = torch.optim.SGD(model.parameters(),lr=lr,momentum=0.9)
-    #optim = torch.optim.Adam(model.parameters(),lr=lr)
     betas = torch.zeros(timeSteps)
     deltaBetas = 0.0001
     beta = deltaBetas
@@ -137,13 +156,10 @@ def train(args):
     data = data.to(device)
     betaT = betas.to(device)
     model.to(device).float()
-    #TEST
-    #xNoise,t,muPosterior,sigmaPosterior = forwardSampling(data,betas)
-    #mu,sigma = model(xNoise)
-    #loss = LBLL(mu,sigma,muPosterior,sigmaPosterior)
 
     for epoch in range(epochs):
         epochLoss = 0
+        epochLossVar = 0
         model.train()
         for i in range(batchs):
             with torch.no_grad():
@@ -155,24 +171,25 @@ def train(args):
             #mu = model(xNoise.float(),t,device)
             predicEps = model(xNoise,t,device)
             #loss = LBLL(mu,sigma,muPosterior,sigmaPosterior,timeSteps)
-            loss = DDPMLBLL(predicEps,eps,t,betaT[t],timeSteps)
+            loss,lossVar = DDPMLBLL(predicEps,eps,t,betaT[t],timeSteps,dataSize,batchSize)
             epochLoss+=loss.item()
+            epochLossVar += lossVar.item()
             loss.backward()
             optim.step()
 
-        print('epoch: ',epoch,'loss : ',epochLoss/batchs)
+        print('epoch: ',epoch,'loss : ',epochLoss/batchs,'loss var : ',epochLossVar/batchs)
         fileName = "epoch%d_loss%0.1f.dict"%(epoch,epochLoss/batchs)
         torch.save(model.state_dict(),fileName)
         model.eval()
         with torch.no_grad():
             x_t = torch.normal(mean=torch.zeros(dataSize,2),std=torch.ones(dataSize,2)).to(device)
             for t in reversed(range(timeSteps)):
-                eps = model(x_t,torch.tensor(t).to(device),device)
-                x_t = reversedSampling(x_t,eps,betaT,t,device)
+                eps = model(x_t,torch.tensor([t]).to(device),device)
+                x_t = reversedSampling(x_t,eps,betaT,t,dataSize,device)
         x = x_t.squeeze(0).to('cpu').numpy()
-        fileName = "epoch%d_loss%0.1f_samplingResult.png"%(epoch,epochLoss/batchs)
+        fileName = "epoch%d_loss%0.2f_samplingResult.png"%(epoch,epochLoss/batchs)
         #plt.imshow(x,cmap=plt.get_cmap('gray'))
-        plt.plot(x[:,1],x[:,0],'rs')
+        plt.plot(x[:,0],x[:,1],'rs')
         plt.savefig(fileName,dpi=300)
         plt.clf()
 
@@ -188,8 +205,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--time_steps',default=200,type=int)
     parser.add_argument('--input_dim',default=64,type=int)
-    parser.add_argument('--data_size',default=64,type=int)
-    parser.add_argument('--hidden_dim',default=64,type=int)
+    parser.add_argument('--data_size',default=128,type=int)
+    parser.add_argument('--hidden_dim',default=96,type=int)
     parser.add_argument('--device',default="cuda:0",type=str)
     args = parser.parse_args()
     main(args)
