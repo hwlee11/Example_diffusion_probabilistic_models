@@ -19,7 +19,7 @@ numpy
 
 ## Result example
 
-![](https://github.com/hwlee11/Example_diffusion_probabilistic_models/file/generateRevSamplingSwissRoll256.gif)
+![](https://github.com/hwlee11/Example_diffusion_probabilistic_models/blob/master/file/generateRevSamplingSwissRoll256.gif)
 
 ## Reference
 
