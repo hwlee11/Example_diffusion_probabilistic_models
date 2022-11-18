@@ -14,7 +14,7 @@ hwl@ai.korea.ac.kr
 
 torch  
 matplotlib  
-PyLab
+PyLab  
 numpy  
 
 ## Result example
@@ -23,5 +23,5 @@ numpy
 
 ## Reference
 
-[1] Sohl-Dickstein, Jascha, et al. "Deep unsupervised learning using nonequilibrium thermodynamics." International Conference on Machine Learning. PMLR, 2015.
+[1] Sohl-Dickstein, Jascha, et al. "Deep unsupervised learning using nonequilibrium thermodynamics." International Conference on Machine Learning. PMLR, 2015.  
 [2] Ho, Jonathan, Ajay Jain, and Pieter Abbeel. "Denoising diffusion probabilistic models." Advances in Neural Information Processing Systems 33 (2020): 6840-6851.
